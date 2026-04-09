@@ -1,34 +1,32 @@
-import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requireAdmin?: boolean;
+}
 
-  useEffect(() => {
-    // Tell the bouncer to wait and specifically ask Supabase if a session exists
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoading(false);
-    });
-  }, []);
+const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+  const { user, loading } = useAuth();
 
-  // 1. If we are still checking local storage, show a loading screen (DO NOT kick them yet)
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  // 2. Once loading is finished, if there is TRULY no user, then kick them out
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  // 3. Otherwise, let them in!
+  // Check if this route requires admin access
+  if (requireAdmin && user.email !== "admin@infinity.com") {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 };
 

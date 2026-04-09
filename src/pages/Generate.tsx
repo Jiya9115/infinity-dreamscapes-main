@@ -27,21 +27,17 @@ const Generate = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [negativePrompt, setNegativePrompt] = useState("");
   
-  // State for credits
   const [credits, setCredits] = useState<number>(0);
 
-  // Real-time Credit Listener
   useEffect(() => {
     if (!user) return;
 
-    // Fetch initial credits on load
     const fetchCredits = async () => {
       const { data } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
       if (data) setCredits(data.credits);
     };
     fetchCredits();
 
-    // Listen for live database updates (e.g., when they buy more via Stripe)
     const channel = supabase
       .channel('live-credits')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, 
@@ -60,7 +56,6 @@ const Generate = () => {
       return;
     }
 
-    // Credit Guard - Stop generation if out of credits
     if (credits <= 0) {
       toast.error("Out of credits!", { description: "Please upgrade your plan to continue creating." });
       navigate("/pricing");
@@ -71,13 +66,8 @@ const Generate = () => {
     setGeneratedImage(null);
 
     try {
-      // 1. Call Hugging Face Edge Function
       const { data, error } = await supabase.functions.invoke("generate-image", {
-        body: {
-          prompt: prompt.trim(),
-          style: selectedStyle,
-          aspect_ratio: selectedRatio,
-        },
+        body: { prompt: prompt.trim(), style: selectedStyle, aspect_ratio: selectedRatio },
       });
 
       if (error) throw error;
@@ -86,29 +76,16 @@ const Generate = () => {
       setGeneratedImage(data.image_url);
       toast.success("Image generated successfully!");
 
-      // 2. Save image to the secure database vault
       const { error: dbError } = await supabase
-        .from('generated_images') // FIXED: Now points to the correct table!
-        .insert({
-          user_id: user.id,
-          prompt: prompt.trim(), 
-          image_url: data.image_url, 
-        });
+        .from('generated_images')
+        .insert({ user_id: user.id, prompt: prompt.trim(), image_url: data.image_url });
         
-      if (dbError) {
-        console.error("Failed to save image to history:", dbError);
-        toast.error("Image created, but failed to save to gallery.");
-      }
+      if (dbError) console.error("Failed to save image to history:", dbError);
 
-      // 3. Deduct 1 credit securely
-      const { error: creditError } = await supabase.rpc("deduct_one_credit", {
-        target_user_id: user.id
-      });
-
+      const { error: creditError } = await supabase.rpc("deduct_one_credit", { target_user_id: user.id });
       if (creditError) {
         console.error("Credit deduction error:", creditError);
       } else {
-        // Optimistically update the UI so it feels instant
         setCredits((prev) => prev - 1); 
       }
 
@@ -131,23 +108,16 @@ const Generate = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navbar />
-      
       <div className="pt-20 flex flex-col lg:flex-row flex-1">
         <GenerateSidebar
-          stylePresets={stylePresets}
-          aspectRatios={aspectRatios}
-          selectedStyle={selectedStyle}
-          setSelectedStyle={setSelectedStyle}
-          selectedRatio={selectedRatio}
-          setSelectedRatio={setSelectedRatio}
-          showAdvanced={showAdvanced}
-          setShowAdvanced={setShowAdvanced}
-          negativePrompt={negativePrompt}
-          setNegativePrompt={setNegativePrompt}
+          stylePresets={stylePresets} aspectRatios={aspectRatios}
+          selectedStyle={selectedStyle} setSelectedStyle={setSelectedStyle}
+          selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio}
+          showAdvanced={showAdvanced} setShowAdvanced={setShowAdvanced}
+          negativePrompt={negativePrompt} setNegativePrompt={setNegativePrompt}
         />
 
-        <main className="flex-1 flex flex-col p-6">
-          {/* Credit Display Badge */}
+        <main className="flex-1 flex flex-col p-4 md:p-6">
           <div className="flex justify-end mb-2">
             <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-semibold border border-primary/20">
               {credits} Credits Available
@@ -155,7 +125,7 @@ const Generate = () => {
           </div>
 
           <div className="glass rounded-xl p-2 mb-6">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
@@ -167,13 +137,9 @@ const Generate = () => {
                 variant="glow"
                 onClick={handleGenerate}
                 disabled={isGenerating || !prompt.trim() || credits <= 0}
-                className="gap-2 rounded-xl"
+                className="gap-2 rounded-xl w-full sm:w-auto"
               >
-                {isGenerating ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
+                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {isGenerating ? "Generating..." : "Generate"}
               </Button>
             </div>
@@ -183,16 +149,8 @@ const Generate = () => {
             {isGenerating ? (
               <div className="w-full max-w-lg aspect-square rounded-2xl shimmer" />
             ) : generatedImage ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative group"
-              >
-                <img
-                  src={generatedImage}
-                  alt="Generated"
-                  className="max-h-[60vh] rounded-2xl object-contain"
-                />
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative group">
+                <img src={generatedImage} alt="Generated" className="max-h-[60vh] rounded-2xl object-contain" />
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button variant="glass" size="sm" className="gap-1.5" onClick={handleDownload}>
                     <Download className="w-3.5 h-3.5" /> Download
@@ -211,7 +169,6 @@ const Generate = () => {
           </div>
         </main>
       </div>
-      
       <Footer />
     </div>
   );
