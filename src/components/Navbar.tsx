@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { LogOut, Menu, X, Coins } from "lucide-react";
 import { toast } from "sonner";
+import { assets } from "@/assets/asstes";
 
 const Navbar = () => {
   const { user } = useAuth();
@@ -57,9 +58,8 @@ const Navbar = () => {
         
         {/* LEFT SIDE: Logo */}
         <Link to="/" className="flex items-center gap-2 z-50">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">∞</span>
-          </div>
+            <img src={assets.logo} alt="" className ="w-25 h-20 rounded-xl flex item-center justify-center"/>
+        
           <span className="text-xl font-display font-bold text-white tracking-tight">
             Infinity Pixels
           </span>
