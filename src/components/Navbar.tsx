@@ -1,118 +1,177 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import {assets} from "@/assets/asstes";
-import { LogOut, ShieldCheck, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { LogOut, Menu, X, Coins } from "lucide-react";
+import { toast } from "sonner";
 
 const Navbar = () => {
-  const { user, signOut } = useAuth();
-  const [profile, setProfile] = useState<{ credits: number; is_admin: boolean } | null>(null);
+  const { user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [credits, setCredits] = useState<number>(0);
 
+  // Fetch and listen for live credit updates
   useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      return;
-    }
+    if (!user) return;
 
-    const fetchProfile = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("credits, is_admin")
-        .eq("id", user.id)
-        .single();
-      if (data) setProfile(data);
+    const fetchCredits = async () => {
+      const { data } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
+      if (data) setCredits(data.credits);
     };
+    fetchCredits();
 
-    fetchProfile();
-
-    // Listener to update credits/admin status in real-time
     const channel = supabase
-      .channel("profile_updates")
-      .on("postgres_changes", { 
-        event: "UPDATE", 
-        schema: "public", 
-        table: "profiles",
-        filter: `id=eq.${user.id}` 
-      }, 
-      (payload) => setProfile(payload.new as any))
+      .channel('navbar-credits')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, 
+      (payload) => setCredits(payload.new.credits))
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // NEW: Helper function to handle sign out and redirection
   const handleSignOut = async () => {
-    await signOut();
-    navigate("/");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate("/");
+      toast.success("Signed out successfully");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
+  const isActive = (path: string) => location.pathname === path;
+
+  const navLinks = [
+    { name: "Home", path: "/" },
+    { name: "Generate", path: "/generate" },
+    { name: "Gallery", path: "/gallery" },
+    { name: "Pricing", path: "/pricing" },
+  ];
+
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[#0F172A] border-b border-slate-800 px-8 py-4 flex justify-between items-center">
-      {/* Brand Logo */}
-      <Link to="/" className="flex items-center gap-2">
-       <img src={assets.logo} alt="" className ="w-15 h-10 rounded-xl flex item-center justify-center"/>
-        <span className="text-xl font-bold text-white">Infinity Pixels</span>
-      </Link>
-
-      {/* Navigation Links */}
-      <div className="flex items-center gap-8">
-        <Link to="/" className="text-slate-400 hover:text-white transition text-sm font-medium">Home</Link>
-        <Link to="/generate" className="text-slate-400 hover:text-white transition text-sm font-medium">Generate</Link>
-        <Link to="/gallery" className="text-slate-400 hover:text-white transition text-sm font-medium">Gallery</Link>
-        <Link to="/pricing" className="text-slate-400 hover:text-white transition text-sm font-medium">Pricing</Link>
+    <nav className="fixed top-0 w-full z-50 bg-[#0F172A] border-b border-slate-800 px-4 md:px-8 py-4">
+      <div className="max-w-7xl mx-auto flex justify-between items-center">
         
-        {/* Admin Access */}
-        {profile?.is_admin && (
-          <Link 
-            to="/admin/dashboard" 
-            className="flex items-center gap-1 text-purple-400 hover:text-purple-300 transition text-sm font-bold uppercase tracking-wider"
-          >
-            <ShieldCheck size={16} /> Admin Panel
-          </Link>
-        )}
-      </div>
+        {/* LEFT SIDE: Logo */}
+        <Link to="/" className="flex items-center gap-2 z-50">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center">
+            <span className="text-white font-bold text-lg">∞</span>
+          </div>
+          <span className="text-xl font-display font-bold text-white tracking-tight">
+            Infinity Pixels
+          </span>
+        </Link>
 
-      {/* User Actions */}
-      <div className="flex items-center gap-6">
-        {user ? (
-          <>
-            {/* Credit Display */}
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Balance</span>
-              <span className="text-purple-400 font-bold leading-none">{profile?.credits ?? 0} Credits</span>
-            </div>
-            
-            <div className="h-8 w-[1px] bg-slate-800" />
+        {/* MOBILE HAMBURGER BUTTON */}
+        <button 
+          className="md:hidden text-white p-2 z-50"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-300 hidden md:block">{user.email}</span>
-              
-              {/* UPDATED: Calling the new handleSignOut function */}
+        {/* DESKTOP MENU */}
+        <div className="hidden md:flex items-center gap-6">
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              to={link.path}
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                isActive(link.path) ? "text-primary" : "text-slate-300"
+              }`}
+            >
+              {link.name}
+            </Link>
+          ))}
+
+          {user && user.email === "admin@infinity.com" && (
+            <Link to="/admin" className="text-sm font-medium text-purple-400 hover:text-purple-300">
+              Admin Panel
+            </Link>
+          )}
+
+          {user && (
+            <div className="flex items-center gap-4 ml-4 border-l border-slate-700 pl-4">
+              {/* DESKTOP CREDIT COUNTER */}
+              <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-bold border border-primary/20">
+                <Coins className="w-3.5 h-3.5" />
+                {credits} Credits
+              </div>
+
+              <span className="text-sm text-slate-300 truncate max-w-[150px]" title={user.email}>
+                {user.email}
+              </span>
               <button 
-                onClick={handleSignOut} 
-                className="text-slate-400 hover:text-red-400 transition-colors p-1"
+                onClick={handleSignOut}
+                className="p-2 text-slate-400 hover:text-red-400 transition-colors"
                 title="Sign Out"
               >
-                <LogOut size={20} />
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
-          </>
-        ) : (
-          <div className="flex items-center gap-4">
-            <Link to="/auth" className="text-slate-300 hover:text-white text-sm font-medium">
-              Sign In
-            </Link>
-            <Link 
-              to="/auth" 
-              className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg text-sm font-bold transition shadow-lg shadow-purple-900/20"
-            >
-              Get Started
-            </Link>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* MOBILE DROPDOWN MENU */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden absolute top-full left-0 w-full bg-[#0F172A] border-b border-slate-800 shadow-xl flex flex-col p-4 gap-4">
+          
+          {/* MOBILE CREDIT COUNTER */}
+          {user && (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20 mb-2">
+              <span className="text-sm font-medium text-primary">Your Balance</span>
+              <div className="flex items-center gap-1.5 text-primary font-bold">
+                <Coins className="w-4 h-4" />
+                {credits} Credits
+              </div>
+            </div>
+          )}
+
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              to={link.path}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={`text-lg font-medium p-2 rounded-lg ${
+                isActive(link.path) ? "bg-primary/20 text-primary" : "text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              {link.name}
+            </Link>
+          ))}
+
+          {user && user.email === "admin@infinity.com" && (
+            <Link 
+              to="/admin" 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-lg font-medium text-purple-400 p-2 rounded-lg hover:bg-slate-800"
+            >
+              Admin Panel
+            </Link>
+          )}
+
+          {user && (
+            <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col gap-4">
+              <span className="text-sm text-slate-400 px-2 truncate">
+                Logged in as: {user.email}
+              </span>
+              <button 
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="flex items-center justify-center gap-2 w-full p-3 rounded-lg bg-red-500/10 text-red-400 font-medium hover:bg-red-500/20 transition-colors"
+              >
+                <LogOut className="w-5 h-5" /> Sign Out
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 };
