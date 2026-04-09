@@ -53,13 +53,12 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[#0F172A] border-b border-slate-800 px-4 md:px-8 py-4">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
+    <nav className="fixed top-0 w-full z-50 bg-[#0F172A] border-b border-slate-800 px-4 md:px-12 py-4">
+      <div className="w-full max-w-7xl mx-auto flex justify-between items-center">
         
         {/* LEFT SIDE: Logo */}
-        <Link to="/" className="flex items-center gap-2 z-50">
-            <img src={assets.logo} alt="" className ="w-25 h-20 rounded-xl flex item-center justify-center"/>
-        
+        <Link to="/" className="flex items-center gap-3 z-50">
+          <img src={assets.logo} alt="Logo" className="w-12 sm:w-16 h-auto rounded-xl object-contain"/>
           <span className="text-xl font-display font-bold text-white tracking-tight">
             Infinity Pixels
           </span>
