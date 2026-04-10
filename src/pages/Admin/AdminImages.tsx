@@ -14,7 +14,7 @@ const AdminImages = () => {
   const fetchImages = async () => {
     try {
       const { data, error } = await supabase
-        .from("admin_image_gallery")
+        .from("generated_images")
         .select("*") 
         .order("created_at", { ascending: false });
         
