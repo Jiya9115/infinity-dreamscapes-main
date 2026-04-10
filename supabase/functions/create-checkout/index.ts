@@ -27,9 +27,9 @@ serve(async (req) => {
     // 3. Match the button to your Stripe Price IDs 
     // 👇 Puta your actual Stripe API IDs here! 👇
     const priceIds: Record<string, string> = {
-      basic: "price_1TKbb5JMGAP7CKSHwtvO8pSL",       // $10
-      advanced: "price_1TKbbcJMGAP7CKSHeX7Leqkp", // $50
-      business: "price_1TKbc1JMGAP7CKSH5QA6lDae", // $250
+      basic: "price_1TKbskJMGAP7CKSHPMoZn3dc",       // $10
+      advanced: "price_1TKbtkJMGAP7CKSHdvyPjH6A", // $50
+      business: "price_1TKbufJMGAP7CKSHaM0wszMR", // $250
     };
 
     const priceId = priceIds[tier];
