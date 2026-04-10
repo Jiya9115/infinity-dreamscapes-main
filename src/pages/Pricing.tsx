@@ -39,7 +39,7 @@ const Pricing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const handleCheckout = async (planId: string) => {
+const handleCheckout = async (planId: string) => {
     if (!user) {
       toast.error("Please sign in to purchase credits.");
       navigate("/auth");
@@ -49,13 +49,19 @@ const Pricing = () => {
     try {
       setLoadingId(planId);
       
-      // FIX APPLIED: We now send window.location.origin to the Edge Function
-      // so Stripe knows exactly where your live Vercel website is!
+      // 1. Manually grab your fresh security token
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+
+      // 2. Forcefully attach it to the headers so Supabase CANNOT ignore it
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { 
           tier: planId,
           baseUrl: window.location.origin 
-        } 
+        },
+        headers: {
+          Authorization: `Bearer ${token}` // This is the magic key!
+        }
       });
 
       if (error) throw error;
