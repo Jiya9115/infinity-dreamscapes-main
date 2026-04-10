@@ -24,12 +24,10 @@ const App = () => (
       <Navbar />
       <Routes>
         {/* === PUBLIC ROUTES === */}
-        {/* Anyone can see the homepage and auth page */}
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
 
         {/* === PROTECTED CLIENT ROUTES === */}
-        {/* Users must be signed in to access these */}
         <Route 
           path="/generate" 
           element={
@@ -56,19 +54,24 @@ const App = () => (
         />
 
         {/* === PROTECTED ADMIN ROUTES === */}
-        {/* Wrapping the AdminLayout protects ALL nested admin routes automatically! */}
+        {/* FIX 1: Added path="/admin" to the wrapper so the Navbar link works */}
+        {/* FIX 2: Added requireAdmin={true} to actually lock the door to your specific email */}
         <Route 
+          path="/admin"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAdmin={true}>
               <AdminLayout />
             </ProtectedRoute>
           }
         >
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/images" element={<AdminImages />} />
-          <Route path="/admin/payments" element={<AdminPayments />} />
-          <Route path="/admin/settings" element={<AdminSettings />} />
+          {/* FIX 3: If they click the Navbar link and go to "/admin", redirect them to the dashboard */}
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="images" element={<AdminImages />} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
 
         {/* Catch-all: Send any unknown URLs back to the homepage */}
