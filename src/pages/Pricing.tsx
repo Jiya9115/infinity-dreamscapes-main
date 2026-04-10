@@ -49,9 +49,13 @@ const Pricing = () => {
     try {
       setLoadingId(planId);
       
-      // Notice we are now sending the chosen planId to the Edge Function!
+      // FIX APPLIED: We now send window.location.origin to the Edge Function
+      // so Stripe knows exactly where your live Vercel website is!
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { tier: planId } 
+        body: { 
+          tier: planId,
+          baseUrl: window.location.origin 
+        } 
       });
 
       if (error) throw error;

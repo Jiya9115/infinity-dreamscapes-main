@@ -54,8 +54,8 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: 'http://localhost:8080/generate?success=true',
-      cancel_url: 'http://localhost:8080/pricing?canceled=true',
+      success_url: 'https://infinity-dreamscapes-main.vercel.app/generate?success=true',
+      cancel_url: 'https://infinity-dreamscapes-main.vercel.app/pricing?canceled=true',
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
