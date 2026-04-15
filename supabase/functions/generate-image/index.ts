@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { encode } from "https://deno.land/std@0.177.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +31,7 @@ serve(async (req) => {
 
     // 2. Call Hugging Face with the 'Wait' header
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
+      "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
       {
         method: "POST",
         headers: {
