@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// Import base64 encoder to convert the image buffer to a data URL
 import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
@@ -14,77 +13,54 @@ serve(async (req) => {
   }
 
   try {
-    // 2. Extract data from the frontend request
-    const { prompt, style, aspect_ratio } = await req.json();
+    const { prompt, style } = await req.json();
 
-    if (!prompt || typeof prompt !== "string") {
-      return new Response(
-        JSON.stringify({ error: "Prompt is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "Prompt is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Append the requested style to the prompt for better results
-    const finalPrompt = style ? `${prompt}, highly detailed, ${style} style` : prompt;
-
-    // Get Hugging Face API key from Supabase secrets
+    const finalPrompt = style ? `${prompt}, ${style} style, highly detailed` : prompt;
     const HF_API_KEY = Deno.env.get("HF_API_KEY");
 
     if (!HF_API_KEY) {
-      throw new Error("HF_API_KEY is not configured");
+      throw new Error("HF_API_KEY is not set in Supabase Secrets");
     }
 
-    // 3. Call Hugging Face Stable Diffusion
-   // 3. Call Hugging Face Stable Diffusion
-const response = await fetch(
-      "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",
+    // 2. Call Hugging Face with the 'Wait' header
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${HF_API_KEY}`,
           "Content-Type": "application/json",
+          "x-wait-for-model": "true", // CRITICAL: Fixes the 500/OOM errors
         },
-        body: JSON.stringify({
-          inputs: finalPrompt,
-        }),
+        body: JSON.stringify({ inputs: finalPrompt }),
       }
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Hugging Face API error: ${errorText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Hugging Face error: ${response.statusText}`);
     }
 
-    // 4. Convert response to a Base64 image URL
+    // 3. Process Image
     const imageBuffer = await response.arrayBuffer();
     const base64 = encode(new Uint8Array(imageBuffer));
-    const imageUrl = `data:image/png;base64,${base64}`;
-
-    // 5. Return the JSON format the frontend expects!
+    
     return new Response(
-      JSON.stringify({ image_url: imageUrl }), 
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json", // Changed to application/json
-        },
-      }
+      JSON.stringify({ image_url: `data:image/png;base64,${base64}` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("generate-image error:", error);
-
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
