@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // 1. Handle CORS Preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -22,14 +21,13 @@ serve(async (req) => {
       });
     }
 
-    const finalPrompt = style ? `${prompt}, ${style} style, highly detailed` : prompt;
+    const finalPrompt = style ? `${prompt}, ${style} style, 8k resolution, highly detailed` : prompt;
     const HF_API_KEY = Deno.env.get("HF_API_KEY");
 
     if (!HF_API_KEY) {
       throw new Error("HF_API_KEY is not set in Supabase Secrets");
     }
 
-    // 2. Call Hugging Face with the 'Wait' header
     const response = await fetch(
       "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
       {
@@ -37,30 +35,48 @@ serve(async (req) => {
         headers: {
           Authorization: `Bearer ${HF_API_KEY}`,
           "Content-Type": "application/json",
-          "x-wait-for-model": "true", // CRITICAL: Fixes the 500/OOM errors
+          "x-wait-for-model": "true", 
         },
         body: JSON.stringify({ inputs: finalPrompt }),
       }
     );
 
+    // FIX 1: Better Error Handling
+    // If the response is not OK, Hugging Face sends JSON errors. 
+    // If it IS ok, it sends an IMAGE (binary).
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Hugging Face error: ${response.statusText}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HF Error: ${response.statusText}`);
     }
 
-    // 3. Process Image
+    // FIX 2: Correctly processing binary data
     const imageBuffer = await response.arrayBuffer();
+    
+    // Check if we actually got data back
+    if (imageBuffer.byteLength === 0) {
+      throw new Error("Received empty image data from Hugging Face");
+    }
+
     const base64 = encode(new Uint8Array(imageBuffer));
     
     return new Response(
       JSON.stringify({ image_url: `data:image/png;base64,${base64}` }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json" 
+        } 
+      }
     );
 
   } catch (error) {
+    console.error("Function Error:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
     );
   }
 });
